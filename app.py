@@ -62,26 +62,30 @@ settlement_Table = pd.DataFrame({
         ]],
 })
 
-def formato_rango(r):
+def range_format(r):
     return f"{r.left:g} - {r.right:g}"          # 0.0 -> "0", 3.5 -> "3.5"
 
-def formato_lista(lista):
-    return "; ".join(lista)
+def list_format(list):
+    return "; ".join(list)
 
-tabla_vista = settlement_Table.copy()
-tabla_vista["Asentamiento (cm)"] = tabla_vista["Asentamiento (cm)"].apply(formato_rango)
-tabla_vista["Tipo de estructura y condiciones de colocación"] = (
-    tabla_vista["Tipo de estructura y condiciones de colocación"].apply(formato_lista)
+settlement_Table_View = settlement_Table.copy()
+settlement_Table_View["Asentamiento (cm)"] = settlement_Table_View["Asentamiento (cm)"].apply(range_format)
+settlement_Table_View["Tipo de estructura y condiciones de colocación"] = (
+    settlement_Table_View["Tipo de estructura y condiciones de colocación"].apply(list_format)
 )
 
 st.title("Asentamiento")
-st.table(tabla_vista)
+st.table(settlement_Table_View)
 
-selected_Settlement = st.number_input("Asentamiento elegido (cm)", min_value=1.0, step=1.0)
+selected_Settlement = st.number_input("Asentamiento elegido (cm)", min_value=0.0, step=0.1)
 
 selected_Settlement_In = selected_Settlement * 2.54
 
+st.info(f"Asentamiento seleccionado en {selected_Settlement} cm / {selected_Settlement_In} in.")
+
 # --------------- TMN (tamaño máximo nominal del agregado) - NMAS (Nominal Maximum Aggregate Size) ---------------
+
+
 
 # ---------- Agregado Grueso / Gravel ------------
 st.title("Granulometría Agregado Grueso")
@@ -359,7 +363,7 @@ if st.button("Calcular porcentaje de aire atrapado"):
         )
 
         st.success(f"Porcentaje estimado de aire atrapado: {porcentaje:.3f} %")
-        st.info(f"Valor decimal: {porcentaje / 100:.5f}")
+        st.info(f"Valor decimal: {porcentaje / 100:.5f} m3/m3")
 
         st.caption("Resultado calculado mediante interpolación lineal.")
 
