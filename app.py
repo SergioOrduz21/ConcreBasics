@@ -14,6 +14,8 @@ gravel_MUC = st.number_input("MUC (Masa Unitaria Compacta) de la grava", min_val
 
 gravel_dg = st.number_input("Densidad aparente (dg) de la grava", min_value=0.0, step=1.0)
 
+sand_df = st.number_input("Densidad aparente (dg) del agregado fino", min_value=0.0, step=1.0)
+
 #------Establishing Databases------
 # ASENTAMIENTO - SETTLEMENT
 settlement_Table = pd.DataFrame({
@@ -456,7 +458,7 @@ if st.button("Calcular porcentaje de aire atrapado"):
 
         st.caption("Resultado calculado mediante interpolación lineal.")
 
-
+air_Percentage_Vol = air_Percentage/100 
 # ---------------CANTIDAD DE AGUA---------------
 
 st.header("Cálculo Cantidad de agua")
@@ -578,6 +580,8 @@ else:
     )
     st.write(f"Agua de mezcla (manual): **{water_Content:.1f} kg/m³**")
 
+water_Content_Vol = water_Content / 1000
+
 # water_Content es la variable que usas en el resto de tus cálculos
 
 # -----------------RELACION AGUA CEMENTO-----------------
@@ -669,7 +673,14 @@ else:
 
 st.header("Cálculo cantidad de cemento")
 
-st.write(f"Con la cantidad de agua determinada: **{water_Content:.1f} kg/m3** y con la relacion **agua/cemento de: {water_Cement_Ratio:.3f},** la cantidad de **cemento necesaria es de {(water_Content/water_Cement_Ratio):.0f} kg/m3**")
+cement_Density = st.number_input("Ingrese la densidad del concreto en kg/m3: ", min_value=0.0, step=100.0)
+
+cement_Weight = water_Content/water_Cement_Ratio
+cement_Vol = cement_Weight / cement_Density
+
+st.write(f"Con la cantidad de agua determinada: **{water_Content:.1f} kg/m3** y con la relacion **agua/cemento de: {water_Cement_Ratio:.3f},** la cantidad de **cemento necesaria es de {cement_Weight:.0f} kg/m3**")
+
+st.write(f"El volumen de cemento es de: {cement_Vol:.4f} m3/m3 de concreto")
 
 # -----------------ESTIMAR CANTIDAD DE GRAVA-----------------
 
@@ -780,8 +791,15 @@ st.write(f"Finalmente, el peso de agregado grueso por cada m3 de concreto se cal
 
 # -----------------ESTIMAR CANTIDAD DE ARENA-----------------
 
+st.header("Cálculo cantidad de agregado fino")
 
+sand_Vol = 1 - (cement_Vol + water_Content_Vol + b_Value + air_Percentage_Vol)
 
+st.write(f"La cantidad de agregado fino se define hallando la diferencia entre 1 m3 y la sumatoria de todos los demás volumenes hallados durante el diseño. Luego, el **volumen de agregado fino es de {sand_Vol:.4f} m3/m3 de concreto**")
+
+sand_Weight = sand_Vol * sand_df
+
+st.write(f"El peso del agregado fino es de {sand_Weight:.0f} kg/m3 de concreto")
 # -----------------AJUSTAR CANTIDAD DE AGUA POR HUMEDAD-----------------
 
 
