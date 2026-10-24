@@ -86,7 +86,7 @@ st.info(f"Asentamiento seleccionado en {selected_Settlement} cm / {selected_Sett
 # --------------- TMN (tamaño máximo nominal del agregado) - NMAS (Nominal Maximum Aggregate Size) ---------------
 
 
-
+tmn_Selected = 0
 st.title("Cálculo TMN (tamaño máximo nominal del agregado)")
 
 
@@ -335,11 +335,19 @@ air_Content_Table = {
     ]
 }
 
+air_Percentage = 0
+
 # Crear DataFrame
 air_Content_Table_Copy = pd.DataFrame(air_Content_Table)
 
 # Mostrar tabla
 st.title("Porcentaje de aire atrapado en el concreto")
+
+concrete_Air_Mode = st.radio(
+    "El concreto tiene aire adicionado?",
+    ["Si", "No"],
+    horizontal=True
+)
 
 st.dataframe(
     air_Content_Table_Copy,
@@ -442,29 +450,231 @@ if st.button("Calcular porcentaje de aire atrapado"):
 
 # ---------------CANTIDAD DE AGUA---------------
 
-st.title("Cálculo Cantidad de agua")
+st.header("Cálculo Cantidad de agua")
+
+water_No_Air_Table = {
+
+    "Asentamiento (cm)":[
+        pd.Interval(0, 3, closed="left"),   #No incluye al limite superior
+        pd.Interval(3, 5, closed="left"),
+        pd.Interval(5, 8, closed="left"),
+        pd.Interval(8, 10, closed="left"),
+        pd.Interval(10, 15, closed="left"),
+        pd.Interval(15, 18, closed="both"),
+    ],
+
+    10:[
+        195, 205, 215, 225, 232, 240
+    ],
+
+    12.5:[
+        192.5, 200, 207.5, 215, 222, 230
+    ],
+    
+    20:[
+        177.5, 185, 192.5, 200, 214.7, 210
+    ],
+    
+    25:[
+        172.5, 180, 187.5, 195, 209.7, 205
+    ],
+    
+    40:[
+        152.5, 160, 167.5, 175, 189.7, 185
+    ],
+    
+    50:[
+        147.5, 155, 162.5, 170, 184.7, 180
+    ],
+    
+    70:[
+        137.5, 145, 152.5, 160, 174.7, 170
+    ],
+    
+    150:[
+        117.5, 125, 132.5, 140, None, None
+    ]
+}
+
+# Tabla para CÁLCULOS (columnas numéricas, no se modifica)
+water_No_Air_Table_Copy = pd.DataFrame(water_No_Air_Table.copy())
 
 
-# RELACION AGUA CEMENTO
+def get_water_no_air(slump_cm, tmn_mm, table=water_No_Air_Table_Copy):
+    """Devuelve el agua de mezcla (kg/m3) para un asentamiento y un TMN,
+    interpolando linealmente entre tamices. Retorna None si está fuera de rango."""
+
+    # 1. Fila según el intervalo de asentamiento
+    row_mask = table["Asentamiento (cm)"].apply(lambda interval: slump_cm in interval)
+    if not row_mask.any():
+        return None
+    row = table.loc[row_mask].iloc[0]
+
+    # 2. Solo los tamices que tienen valor (descarta los None)
+    water_values = row[table.columns[1:]].astype(float).dropna()
+    sieve_sizes = water_values.index.astype(float)
+
+    # 3. Si el TMN queda fuera del rango disponible, no se puede interpolar
+    if tmn_mm < sieve_sizes.min() or tmn_mm > sieve_sizes.max():
+        return None
+
+    # 4. Interpolación lineal (si el TMN coincide con un tamiz, da el valor exacto)
+    return float(np.interp(tmn_mm, sieve_sizes, water_values.values))
+
+
+# Tabla para MOSTRAR (copia con encabezados de dos niveles)
+water_No_Air_Table_Display = water_No_Air_Table_Copy.copy()
+water_No_Air_Table_Display.columns = pd.MultiIndex.from_tuples(
+    [("Concreto sin aire", "Asentamiento (cm)")]
+    + [
+        ("Tamaño Máximo Nominal", f"{sieve} mm")
+        for sieve in water_No_Air_Table_Copy.columns[1:]
+    ]
+)
+
+st.dataframe(
+    water_No_Air_Table_Display,
+    use_container_width=True,
+    hide_index=True
+)
+
+# Agua calculada automáticamente con los datos seleccionados antes
+water_Interpolated = get_water_no_air(selected_Settlement, tmn_Selected)
+
+water_Mode = st.radio(
+    "Cantidad de agua de mezcla",
+    ["Automática (interpolada de la tabla)", "Manual"],
+    horizontal=True
+)
+
+if water_Mode == "Automática (interpolada de la tabla)":
+    water_Content = water_Interpolated
+
+    if water_Content is None:
+        st.warning(
+            "No hay dato de agua para ese asentamiento y TMN (fuera del rango de la tabla). "
+            "Puedes cambiar a modo Manual para ingresarla."
+        )
+        st.stop()
+    else:
+        st.write(f"Agua de mezcla: **{water_Content:.1f} kg/m³**")
+
+else:
+    # El valor inicial es el interpolado (si existe) para que puedas ajustarlo
+    water_Content = st.number_input(
+        "Agua de mezcla (kg/m³)",
+        min_value=0.0,
+        value=round(water_Interpolated, 1) if water_Interpolated is not None else 180.0,
+        step=1.0
+    )
+    st.write(f"Agua de mezcla (manual): **{water_Content:.1f} kg/m³**")
+
+# water_Content es la variable que usas en el resto de tus cálculos
+
+# -----------------RELACION AGUA CEMENTO-----------------
+st.header("Cálculo Relación Agua/Cemento a/c")
+
+concrete_Strength_Mode = st.radio(
+    "Resistencia del concreto",
+    ["MPa", "PSI"],
+    horizontal=True
+)
+
+fc_Concrete_Strength = 0
+
+if concrete_Strength_Mode == "MPa": 
+
+    fc_Concrete_Strength = st.number_input("Resistencia del Concreto", min_value=0.0, step=10.0)
+
+    concrete_Strength_Table = {
+    "Resistencia a la compresión a los 28 dias": [
+        175, 210, 245, 280, 315, 350
+    ],
+
+    "Concreto sin aire": [
+        0.65, 0.58, 0.52, 0.47, 0.43, 0.40
+    ],
+
+    "Concreto con aire": [
+        0.56, 0.50, 0.46, 0.42, 0.38, 0.35
+    ]
+    }
+else: 
+    fc_Concrete_Strength = st.number_input("Resistencia del Concreto", min_value=0.0, step=100.0)
+    
+    concrete_Strength_Table = {
+    "Resistencia a la compresión a los 28 dias": [
+        2500, 3000, 3500, 4000, 4500, 5000
+    ],
+    
+    "Concreto sin aire": [
+        0.65, 0.58, 0.52, 0.47, 0.43, 0.40
+    ],
+    
+    "Concreto con aire": [
+        0.56, 0.50, 0.46, 0.42, 0.38, 0.35
+    ]
+    }
+
+def get_water_cement_ratio(strength, air_mode, table):
+    """Devuelve la relación a/c para una resistencia dada, interpolando
+    linealmente en la columna con aire o sin aire. Retorna None si está fuera de rango."""
+
+    # 1. Columna según el tipo de concreto
+    column_Name = "Concreto con aire" if air_mode == "Si" else "Concreto sin aire"
+
+    strength_Column = table.columns[0]
+    strength_Values = table[strength_Column].astype(float).values
+    ratio_Values = table[column_Name].astype(float).values
+
+    # 2. Fuera del rango de la tabla no se puede interpolar
+    if strength < strength_Values.min() or strength > strength_Values.max():
+        return None
+
+    # 3. Interpolación lineal (si coincide con un valor de la tabla, da el valor exacto)
+    return float(np.interp(strength, strength_Values, ratio_Values))
+
+
+concrete_Strength_DataFrame = pd.DataFrame(concrete_Strength_Table)
+
+st.dataframe(
+    concrete_Strength_DataFrame,
+    use_container_width=True,
+    hide_index=True
+)
+
+water_Cement_Ratio = get_water_cement_ratio(
+    fc_Concrete_Strength,
+    concrete_Air_Mode,
+    concrete_Strength_DataFrame
+)
+
+if water_Cement_Ratio is None:
+    st.warning("La resistencia está fuera del rango de la tabla, no se puede obtener la relación a/c.")
+    st.stop()
+else:
+    air_Label = "con aire" if concrete_Air_Mode == "Si" else "sin aire"
+    st.write(f"Relación a/c ({air_Label}): **{water_Cement_Ratio:.3f}**")
+
+
+# -----------------CONTENIDO DE CEMENTO-----------------
+
+st.header("Cálculo cantidad de cemento")
+
+st.write(f"Con la cantidad de agua determinada: **{water_Content:.1f} kg/m3** y con la relacion **agua/cemento de: {water_Cement_Ratio:.3f},** la cantidad de **cemento necesaria es de {(water_Content/water_Cement_Ratio):.0f} kg/m3**")
+
+# -----------------ESTIMAR CANTIDAD DE GRAVA-----------------
 
 
 
-# CONTENIDO DE CEMENTO
+# -----------------ESTIMAR CANTIDAD DE ARENA-----------------
 
 
 
-# ESTIMAR CANTIDAD DE GRAVA
+# -----------------AJUSTAR CANTIDAD DE AGUA POR HUMEDAD-----------------
 
 
 
-# ESTIMAR CANTIDAD DE ARENA
-
-
-
-# AJUSTAR CANTIDAD DE AGUA POR HUMEDAD
-
-
-
-# AJUSTAR MEZCLAS DE PRUEBA
+# -----------------AJUSTAR MEZCLAS DE PRUEBA-----------------
 
 
