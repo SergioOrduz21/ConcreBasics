@@ -5,6 +5,15 @@ import matplotlib as mpl
 import matplotlib.pyplot as plt
 
 st.title("Diseño de Mezclas de Concreto de Peso Normal")
+
+st.write("Datos iniciales para el cálculo de la mezcla de concreto según el Método ACI")
+
+sand_Mf = st.number_input("MF (Modulo de Finura de la arena)", min_value=0.0, step=1.0)
+
+gravel_MUC = st.number_input("MUC (Masa Unitaria Compacta) de la grava", min_value=0.0, step=1.0)
+
+gravel_dg = st.number_input("Densidad aparente (dg) de la grava", min_value=0.0, step=1.0)
+
 #------Establishing Databases------
 # ASENTAMIENTO - SETTLEMENT
 settlement_Table = pd.DataFrame({
@@ -656,7 +665,6 @@ else:
     air_Label = "con aire" if concrete_Air_Mode == "Si" else "sin aire"
     st.write(f"Relación a/c ({air_Label}): **{water_Cement_Ratio:.3f}**")
 
-
 # -----------------CONTENIDO DE CEMENTO-----------------
 
 st.header("Cálculo cantidad de cemento")
@@ -665,7 +673,110 @@ st.write(f"Con la cantidad de agua determinada: **{water_Content:.1f} kg/m3** y 
 
 # -----------------ESTIMAR CANTIDAD DE GRAVA-----------------
 
+st.header("Cálculo cantidad de grava")
 
+mf_Table = {
+    "Tamaño Maximo Nominal (mm)": [
+        9.5, 12.5, 19.0, 25.0, 38.0, 50.0, 75.0, 150.0
+    ],
+
+    2.0: [
+        0.50, 0.59, 0.69, 0.74, 0.80, 0.83, 0.88, 0.94
+    ],
+
+    2.1: [
+        0.49, 0.58, 0.68, 0.73, 0.79, 0.82, 0.87, 0.93
+    ],
+
+    2.2: [
+        0.48, 0.57, 0.67, 0.72, 0.78, 0.81, 0.86, 0.92
+    ],
+
+    2.3: [
+        0.47, 0.56, 0.66, 0.71, 0.77, 0.80, 0.85, 0.91
+    ],
+
+    2.4: [
+        0.46, 0.55, 0.65, 0.70, 0.76, 0.79, 0.84, 0.90
+    ],
+
+    2.5: [
+        0.45, 0.54, 0.64, 0.69, 0.75, 0.78, 0.83, 0.89
+    ],
+
+    2.6: [
+        0.44, 0.53, 0.63, 0.68, 0.74, 0.77, 0.82, 0.88
+    ],
+
+    2.7: [
+        0.43, 0.52, 0.62, 0.67, 0.73, 0.76, 0.81, 0.87
+    ],
+
+    2.8: [
+        0.42, 0.51, 0.61, 0.66, 0.72, 0.75, 0.80, 0.86
+    ],
+
+    2.9: [
+        0.41, 0.50, 0.60, 0.65, 0.71, 0.74, 0.79, 0.85
+    ],
+
+    3.0: [
+        0.40, 0.49, 0.59, 0.64, 0.70, 0.73, 0.78, 0.84
+    ],
+
+    3.1: [
+        0.39, 0.48, 0.58, 0.63, 0.69, 0.72, 0.77, 0.83
+    ]
+}
+
+mf_DataFrame = pd.DataFrame(mf_Table)
+
+st.subheader("Relación b/b0 para diferentes modulos de finura MF de la arena")
+
+st.table(mf_DataFrame)
+
+def get_coarse_aggregate_factor(tmn_mm, fineness_modulus, table=mf_DataFrame):
+    """Devuelve el valor de la tabla para un TMN y un módulo de finura,
+    interpolando linealmente en ambas direcciones (bilineal).
+    Retorna None si alguno de los dos está fuera del rango de la tabla."""
+
+    tmn_Column = table.columns[0]
+    tmn_Values = table[tmn_Column].astype(float).values
+    mf_Values = np.array(table.columns[1:], dtype=float)
+
+    # 1. Fuera de rango no se puede interpolar
+    if tmn_mm < tmn_Values.min() or tmn_mm > tmn_Values.max():
+        return None
+    if fineness_modulus < mf_Values.min() or fineness_modulus > mf_Values.max():
+        return None
+
+    # 2. Interpolar en TMN para cada columna de módulo de finura
+    values_At_Tmn = [
+        np.interp(tmn_mm, tmn_Values, table[mf].astype(float).values)
+        for mf in table.columns[1:]
+    ]
+
+    # 3. Interpolar en módulo de finura con los valores obtenidos
+    return float(np.interp(fineness_modulus, mf_Values, values_At_Tmn))
+
+coarse_Factor = get_coarse_aggregate_factor(tmn_Selected, sand_Mf)
+
+if coarse_Factor is None:
+    st.warning("El TMN o el módulo de finura están fuera del rango de la tabla.")
+else:
+    st.write(f"Relación b/b0: **{coarse_Factor:.3f}**")
+
+b0_Value = gravel_MUC/gravel_dg
+
+st.write(f"EL valor de b0 es igual al **MUC/dg**. Por lo tanto, el valor de b0 en este análisis es de: **{b0_Value:.4f}**")
+
+b_Value = coarse_Factor*b0_Value 
+
+st.write(f"Luego, el valor del volumen de agregado grueso por cada m3 de concreto se calcula de la siguiente manera: b = (b/b0)*b0. Por lo mismo, el valor de b es igual a: {b_Value:.4f} m3/m3")
+
+gravel_Weight = b_Value * gravel_dg
+
+st.write(f"Finalmente, el peso de agregado grueso por cada m3 de concreto se calcula de la siguiente manera: W = b*dg Por lo mismo, el valor del peso de agregado grueso es de: {gravel_Weight:.0f} kg/m3 de concreto")
 
 # -----------------ESTIMAR CANTIDAD DE ARENA-----------------
 
