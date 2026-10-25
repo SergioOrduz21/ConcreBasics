@@ -4,9 +4,29 @@ import pandas as pd
 import matplotlib as mpl
 import matplotlib.pyplot as plt
 
-st.title("Diseño de Mezclas de Concreto de Peso Normal")
+st.set_page_config(page_title="Diseño de Mezclas de Concreto")
 
-st.write("Datos iniciales para el cálculo de la mezcla de concreto según el Método ACI")
+# ---------- ESTILO - STYLE ----------
+
+# Centers headings, captions, radios, metrics and static tables
+st.markdown("""
+<style>
+h1, h2, h3, h4 { text-align: center; }
+[data-testid="stHeadingWithActionElements"] { display: flex; justify-content: center; }
+[data-testid="stCaptionContainer"] { text-align: center; }
+[data-testid="stRadio"] { display: flex; flex-direction: column; align-items: center; }
+[data-testid="stMetric"] { text-align: center; align-items: center; }
+[data-testid="stMetricLabel"], [data-testid="stMetricValue"] { justify-content: center; }
+[data-testid="stTable"] th, [data-testid="stTable"] td { text-align: center !important; }
+</style>
+""", unsafe_allow_html=True)
+
+st.title("Diseño de Mezclas de Concreto de Peso Normal")
+st.caption("Cálculo de la mezcla de concreto según el Método ACI")
+
+# ---------- DATOS INICIALES - INITIAL DATA ----------
+
+st.header("Datos Iniciales")
 
 gravel_Dry_Weight = st.number_input("Peso seco del agregado grueso (Ensayo INV-E-223) en g.", min_value=0.0, step=1.0)
 
@@ -22,14 +42,14 @@ sand_Sss_Weight = st.number_input("Peso Saturado y Superficialmente Seco del agr
 
 sand_Mf = st.number_input("MF (Modulo de Finura de la arena)", min_value=0.0, step=1.0)
 
-gravel_MUC = st.number_input("MUC (Masa Unitaria Compacta) de la grava", min_value=0.0, step=1.0)
+gravel_Muc = st.number_input("MUC (Masa Unitaria Compacta) de la grava", min_value=0.0, step=1.0)
 
-gravel_dg = st.number_input("Densidad aparente (dg) de la grava", min_value=0.0, step=1.0)
+gravel_Dg = st.number_input("Densidad aparente (dg) de la grava", min_value=0.0, step=1.0)
 
-sand_df = st.number_input("Densidad aparente (dg) del agregado fino", min_value=0.0, step=1.0)
+sand_Df = st.number_input("Densidad aparente (dg) del agregado fino", min_value=0.0, step=1.0)
 
-#------Establishing Databases------
-# ASENTAMIENTO - SETTLEMENT
+# ---------- ASENTAMIENTO - SETTLEMENT ----------
+
 settlement_Table = pd.DataFrame({
 
     "Asentamiento (cm)": [
@@ -85,16 +105,16 @@ settlement_Table = pd.DataFrame({
         ]],
 })
 
-def range_format(r):
+def format_interval(r):
     return f"{r.left:g} - {r.right:g}"          # 0.0 -> "0", 3.5 -> "3.5"
 
-def list_format(list):
-    return "; ".join(list)
+def format_list(items):
+    return "; ".join(items)
 
 settlement_Table_View = settlement_Table.copy()
-settlement_Table_View["Asentamiento (cm)"] = settlement_Table_View["Asentamiento (cm)"].apply(range_format)
+settlement_Table_View["Asentamiento (cm)"] = settlement_Table_View["Asentamiento (cm)"].apply(format_interval)
 settlement_Table_View["Tipo de estructura y condiciones de colocación"] = (
-    settlement_Table_View["Tipo de estructura y condiciones de colocación"].apply(list_format)
+    settlement_Table_View["Tipo de estructura y condiciones de colocación"].apply(format_list)
 )
 
 st.header("Cálculo del Asentamiento")
@@ -106,14 +126,12 @@ selected_Settlement_In = selected_Settlement * 2.54
 
 st.info(f"Asentamiento seleccionado en {selected_Settlement} cm / {selected_Settlement_In} in.")
 
-# --------------- TMN (tamaño máximo nominal del agregado) - NMAS (Nominal Maximum Aggregate Size) ---------------
-
+# ---------- TMN - NMAS (NOMINAL MAXIMUM AGGREGATE SIZE) ----------
 
 tmn_Selected = 0
-st.title("Cálculo TMN (tamaño máximo nominal del agregado)")
+st.header("Cálculo del TMN (Tamaño Máximo Nominal del Agregado)")
 
-
-tmn_Mode = st.radio(    # Elegir el modo de cálculo del TMN
+tmn_Mode = st.radio(
     "¿Cómo desea calcular el TMN?",
     [
         "Ingresar pesos retenidos y calcular granulometría",
@@ -124,9 +142,11 @@ tmn_Mode = st.radio(    # Elegir el modo de cálculo del TMN
 
 if tmn_Mode == "Ingresar pesos retenidos y calcular granulometría" :
     
-    st.header("Granulometría Agregado Grueso")
+    # ---------- AGREGADO GRUESO - GRAVEL ----------
 
-    gravel_Sieves = [   # Database Agregado Grueso / Gravel 
+    st.subheader("Granulometría Agregado Grueso")
+
+    gravel_Sieves = [
 
         ('5"', 127.0),    
         ('4"', 101.6),    
@@ -151,8 +171,7 @@ if tmn_Mode == "Ingresar pesos retenidos y calcular granulometría" :
 
     initial_Gravel_Mass = st.number_input("Masa inicial seca gravas (g)", min_value=0.0, step=1.0)
 
-    # Tabla editable
-    # Solo la columna de peso se puede modificar
+    # Only the weight column is editable
     gravel_Table_Edited = st.data_editor(
         gravel_Base,
         disabled=["Tamiz", "Abertura (mm)"],
@@ -174,7 +193,7 @@ if tmn_Mode == "Ingresar pesos retenidos y calcular granulometría" :
             gravel_Difference = (initial_Gravel_Mass - gravel_Total) / initial_Gravel_Mass * 100
             st.caption(f"Total retenido: {gravel_Total:.1f} g | Diferencia vs. masa inicial: {gravel_Difference:.2f} %")
 
-        # Curva granulométrica
+        # Grading curve
         gravel_Curve_Data = gravel_Percentages_Table[gravel_Percentages_Table["Abertura (mm)"].notna()]
         fig, ax = plt.subplots(figsize=(8,5))
         ax.semilogx(gravel_Curve_Data["Abertura (mm)"], gravel_Curve_Data["% Pasa"], marker="o")
@@ -187,11 +206,11 @@ if tmn_Mode == "Ingresar pesos retenidos y calcular granulometría" :
         ax.grid(True, which="both")
         st.pyplot(fig)
     else:
-            st.info("Ingresa los pesos retenidos para ver los resultados.")
+        st.info("Ingresa los pesos retenidos para ver los resultados.")
 
-# ---------- Agregado Fino / Sand ------------
+    # ---------- AGREGADO FINO - SAND ----------
 
-    st.title("Granulometría Agregado Fino")
+    st.subheader("Granulometría Agregado Fino")
 
     sand_Sieves = [    
 
@@ -214,8 +233,7 @@ if tmn_Mode == "Ingresar pesos retenidos y calcular granulometría" :
 
     initial_Sand_Mass = st.number_input("Masa inicial seca finos (g)", min_value=0.0, step=1.0)
 
-    # Tabla editable: solo la columna de peso se puede modificar
-
+    # Only the weight column is editable
     sand_Table_Edited = st.data_editor(
         sand_Base,
         disabled=["Tamiz", "Abertura (mm)"],
@@ -237,7 +255,7 @@ if tmn_Mode == "Ingresar pesos retenidos y calcular granulometría" :
             sand_Difference = (initial_Sand_Mass - sand_Total) / initial_Sand_Mass * 100
             st.caption(f"Total retenido: {sand_Total:.1f} g | Diferencia vs. masa inicial: {sand_Difference:.2f} %")
 
-        # Curva granulométrica
+        # Grading curve
         sand_Curve_Data = sand_Percentages_Table[sand_Percentages_Table["Abertura (mm)"].notna()]
         fig, ax = plt.subplots(figsize=(8,5))
         ax.semilogx(sand_Curve_Data["Abertura (mm)"], sand_Curve_Data["% Pasa"], marker="o")
@@ -252,35 +270,38 @@ if tmn_Mode == "Ingresar pesos retenidos y calcular granulometría" :
     else:
         st.info("Ingresa los pesos retenidos para ver los resultados.")
 
+    # ---------- RESULTADO TMN - TMN RESULT ----------
 
     st.subheader("TMN - Tamaño Máximo Nominal")
 
-    def find_TMN(percentages_Table):
-        # Sin el fondo (no tiene abertura)
+    def find_tmn(percentages_Table):
+        """First sieve with 5-10 % retained after the last sieve passing 100 %."""
+        # Drop "Fondo" (no opening)
         sieves = percentages_Table[percentages_Table["Abertura (mm)"].notna()].reset_index(drop=True)
 
-        # 1. Último tamiz por el que pasa el 100 % (retenido acumulado = 0)
+        # Last sieve with 100 % passing (cumulative retained = 0)
         passes_All = sieves["% Ret. acum."] == 0
         last_100 = sieves.index[passes_All].max() if passes_All.any() else -1
 
-        # 2. De los tamices siguientes, el primero con % retenido entre 5 y 10
+        # First following sieve with 5-10 % retained
         next_Sieves = sieves.iloc[last_100 + 1:]
         candidates = next_Sieves[(next_Sieves["% Retenido"] >= 5) & (next_Sieves["% Retenido"] <= 10)]
 
-        return candidates.head(1)   # DataFrame de 1 fila, o vacío si ninguno cumple
+        return candidates.head(1)   # 1-row DataFrame, empty if none
 
 
     if gravel_Total > 0:
-        tmn_Selected = find_TMN(gravel_Percentages_Table)
+        tmn_Result = find_tmn(gravel_Percentages_Table)
 
-        if tmn_Selected.empty:
+        if tmn_Result.empty:
             st.warning("Ningún tamiz cumple: % retenido entre 5 y 10 % después del último con 100 % pasante.")
         else:
-            tmn_Sieve = tmn_Selected["Tamiz"].iloc[0]
-            tmn_mm = tmn_Selected["Abertura (mm)"].iloc[0]
+            tmn_Sieve = tmn_Result["Tamiz"].iloc[0]
+            tmn_Mm = float(tmn_Result["Abertura (mm)"].iloc[0])
+            tmn_Selected = tmn_Mm   # numeric TMN (mm) used by the rest of the app
 
-            st.success(f"Tamaño máximo nominal: {tmn_Sieve} ({tmn_mm} mm)")
-            st.dataframe(tmn_Selected.round(1), hide_index=True)
+            st.success(f"Tamaño máximo nominal: {tmn_Sieve} ({tmn_Mm} mm)")
+            st.dataframe(tmn_Result.round(1), hide_index=True)
     else:
         st.info("Ingresa la granulometría del agregado grueso para calcular el TMN.")
 else:
@@ -324,27 +345,29 @@ else:
             return f"≥ {interval.left:g}"
         return f"{interval.left:g} - {interval.right:g}"
 
-    tmn_table_view = tmn_Const_Type_Table.copy()
-    tmn_table_view["Dimensión Mínima del Elemento (cm)"] = (
-        tmn_table_view["Dimensión Mínima del Elemento (cm)"].apply(format_range)
+    tmn_Table_View = tmn_Const_Type_Table.copy()
+    tmn_Table_View["Dimensión Mínima del Elemento (cm)"] = (
+        tmn_Table_View["Dimensión Mínima del Elemento (cm)"].apply(format_range)
     )
 
-    st.header("Valores Recomendados de TMN según el tipo de construcción")
-    st.table(tmn_table_view)
+    st.subheader("Valores Recomendados de TMN según el tipo de construcción")
+    st.table(tmn_Table_View)
 
-    standard_sieves = { # Standard sieve sizes (mm: inches)
+    standard_Sieves = {     # mm: inches
         12.5: '1/2"', 19.0: '3/4"', 25.0: '1"', 37.5: '1 1/2"',
         75.0: '3"', 150.0: '6"',
     }
 
     tmn_Selected = st.selectbox(
         "TMN Elegido",
-        list(standard_sieves),
-        format_func=lambda mm: f'{mm:g} mm ({standard_sieves[mm]})',
+        list(standard_Sieves),
+        format_func=lambda mm: f'{mm:g} mm ({standard_Sieves[mm]})',
     )
 
 
-# ------------------CONTENIDO DE AIRE------------------
+# ---------- CONTENIDO DE AIRE - AIR CONTENT ----------
+
+st.header("Contenido de Aire en el Concreto")
 
 air_Content_Table = {
     "Agregado grueso (pulg.)": [
@@ -355,16 +378,32 @@ air_Content_Table = {
     ],
     "Porcentaje Promedio aproximado de aire atrapado (%)": [
         2.7, 2.5, 2.0, 1.7, 1.5, 1.0, 0.3, 0.2
+    ],
+    "Aire total - Suave (%)": [
+        4.5, 4.0, 3.5, 3.0, 2.5, 2.0, 1.5, 1.0
+    ],
+    "Aire total - Moderado (%)": [
+        6.0, 5.5, 5.0, 4.5, 4.5, 4.0, 3.5, 3.0
+    ],
+    "Aire total - Severo (%)": [
+        7.5, 7.0, 6.0, 6.0, 5.5, 4.0, 4.5, 4.0
     ]
 }
 
 air_Percentage = 0
 
-# Crear DataFrame
 air_Content_Table_Copy = pd.DataFrame(air_Content_Table)
 
-# Mostrar tabla
-st.title("Porcentaje de aire atrapado en el concreto")
+# Display copy with two-level headers
+air_Content_Table_Display = air_Content_Table_Copy.copy()
+air_Content_Table_Display.columns = pd.MultiIndex.from_tuples([
+    ("Agregado grueso", "Pulg."),
+    ("Agregado grueso", "mm"),
+    ("Aire atrapado", "Promedio aprox. (%)"),
+    ("Aire total recomendado (%) según grado de exposición", "Suave"),
+    ("Aire total recomendado (%) según grado de exposición", "Moderado"),
+    ("Aire total recomendado (%) según grado de exposición", "Severo"),
+])
 
 concrete_Air_Mode = st.radio(
     "El concreto tiene aire adicionado?",
@@ -372,24 +411,33 @@ concrete_Air_Mode = st.radio(
     horizontal=True
 )
 
+# With added air: total air by exposure. Without: trapped air.
+if concrete_Air_Mode == "Si":
+    exposure_Level = st.radio(
+        "Grado de exposición",
+        ["Suave", "Moderado", "Severo"],
+        horizontal=True
+    )
+    percentage_Column = f"Aire total - {exposure_Level} (%)"
+    air_Result_Label = "aire total"
+else:
+    percentage_Column = "Porcentaje Promedio aproximado de aire atrapado (%)"
+    air_Result_Label = "aire atrapado"
+
+st.subheader("Contenido aproximado de aire en el concreto para varios grados de exposición")
+
 st.dataframe(
-    air_Content_Table_Copy,
-    use_container_width=True,
+    air_Content_Table_Display,
+    width="stretch",
     hide_index=True
 )
 
-# Sección de interpolación
-st.subheader("Cálculo del porcentaje de aire atrapado")
+st.subheader("Cálculo del porcentaje de aire")
 
 interpol_Table = air_Content_Table_Copy.sort_values(
     "Tamaño (mm)"
 ).reset_index(drop=True)
 
-percentage_Column = (
-    "Porcentaje Promedio aproximado de aire atrapado (%)"
-)
-
-# Elegir el modo de cálculo
 tmn_Air_Mode = st.radio(
     "¿Cómo deseas ingresar el TMN?",
     [
@@ -401,7 +449,7 @@ tmn_Air_Mode = st.radio(
 
 if tmn_Air_Mode == "Seleccionar un tamaño de la tabla":
 
-    # Crear opciones con tamaño en mm y pulgadas
+    # Options labeled in inches and mm
     tmn_Options = {
         f"{tmn_Row['Agregado grueso (pulg.)']} "
         f"({tmn_Row['Tamaño (mm)']:.2f} mm)": tmn_Row["Tamaño (mm)"]
@@ -426,13 +474,12 @@ else:
         format="%.2f"
     )
 
-# Botón de cálculo
-if st.button("Calcular porcentaje de aire atrapado"):
+if st.button(f"Calcular porcentaje de {air_Result_Label}"):
 
     table_Sizes = interpol_Table["Tamaño (mm)"].to_numpy()
     table_Percentages = interpol_Table[percentage_Column].to_numpy()
 
-    # Verificar si el tamaño está en la tabla
+    # Size already in the table?
     exact_Match = interpol_Table[
         np.isclose(
             interpol_Table["Tamaño (mm)"],
@@ -443,42 +490,45 @@ if st.button("Calcular porcentaje de aire atrapado"):
     ]
 
     if not exact_Match.empty:
-
-        # Valor exacto de la tabla
-        air_Percentage = float(
-            exact_Match.iloc[0][percentage_Column]
-        )
-
-        st.success(f"Porcentaje de aire atrapado: {air_Percentage:.2f} %")
-        st.info(f"Valor decimal: {air_Percentage / 100:.4f} m3 aire/m3 ccto")
-
-        st.caption("Resultado exacto de la tabla original.")
-
+        air_Value = float(exact_Match.iloc[0][percentage_Column])
     else:
+        # Linear interpolation
+        air_Value = float(np.interp(gravel_Selected_Size, table_Sizes, table_Percentages))
 
-        # Interpolación lineal
-        air_Percentage = float(
-            np.interp(
-                gravel_Selected_Size,
-                table_Sizes,
-                table_Percentages
-            )
-        )
+    # Persist across reruns, tied to the inputs used
+    st.session_state["air_Result"] = {
+        "key": (percentage_Column, gravel_Selected_Size),
+        "value": air_Value,
+        "exact": not exact_Match.empty,
+    }
 
-        st.success(f"Porcentaje estimado de aire atrapado: {air_Percentage:.3f} %")
+# Use the stored result only if inputs have not changed
+air_Result = st.session_state.get("air_Result")
+
+if air_Result is not None and air_Result["key"] == (percentage_Column, gravel_Selected_Size):
+    air_Percentage = air_Result["value"]
+
+    if air_Result["exact"]:
+        st.success(f"Porcentaje de {air_Result_Label}: {air_Percentage:.2f} %")
+        st.info(f"Valor decimal: {air_Percentage / 100:.4f} m3 aire/m3 ccto")
+        st.caption("Resultado exacto de la tabla original.")
+    else:
+        st.success(f"Porcentaje estimado de {air_Result_Label}: {air_Percentage:.3f} %")
         st.info(f"Valor decimal: {air_Percentage / 100:.5f} m3 aire/m3 ccto")
-
         st.caption("Resultado calculado mediante interpolación lineal.")
+else:
+    st.warning(f"Presiona el botón para calcular el porcentaje de {air_Result_Label}. Mientras tanto se usa 0 %.")
 
 air_Percentage_Vol = air_Percentage/100 
-# ---------------CANTIDAD DE AGUA---------------
 
-st.header("Cálculo Cantidad de agua")
+# ---------- CANTIDAD DE AGUA - WATER CONTENT ----------
+
+st.header("Cálculo Cantidad de Agua")
 
 water_No_Air_Table = {
 
     "Asentamiento (cm)":[
-        pd.Interval(0, 3, closed="left"),   #No incluye al limite superior
+        pd.Interval(0, 3, closed="left"),   # Upper limit excluded
         pd.Interval(3, 5, closed="left"),
         pd.Interval(5, 8, closed="left"),
         pd.Interval(8, 10, closed="left"),
@@ -519,50 +569,107 @@ water_No_Air_Table = {
     ]
 }
 
-# Tabla para CÁLCULOS (columnas numéricas, no se modifica)
+water_With_Air_Table = {
+
+    "Asentamiento (cm)":[
+        pd.Interval(0, 3, closed="left"),   # Upper limit excluded
+        pd.Interval(3, 5, closed="left"),
+        pd.Interval(5, 8, closed="left"),
+        pd.Interval(8, 10, closed="left"),
+        pd.Interval(10, 15, closed="left"),
+        pd.Interval(15, 18, closed="both"),
+    ],
+
+    10:[
+        172.5, 180, 190, 200, 207.5, 215
+    ],
+
+    12.5:[
+        167.5, 175, 182.5, 190, 197.5, 205
+    ],
+    
+    20:[
+        157.5, 165, 172.5, 180, 185, 190
+    ],
+    
+    25:[
+        152.5, 160, 167.5, 175, 180, 185
+    ],
+    
+    40:[
+        137.5, 145, 152.5, 160, 165, 170
+    ],
+    
+    50:[
+        132.5, 140, 147.5, 155, 160, 165
+    ],
+    
+    70:[
+        127.5, 135, 142.5, 150, 155, 160
+    ],
+    
+    150:[
+        112.5, 120, 127.5, 135, None, None
+    ]
+}
+
+# Numeric tables for calculations (not modified)
 water_No_Air_Table_Copy = pd.DataFrame(water_No_Air_Table.copy())
+water_With_Air_Table_Copy = pd.DataFrame(water_With_Air_Table.copy())
 
 
-def get_water_no_air(slump_cm, tmn_mm, table=water_No_Air_Table_Copy):
-    """Devuelve el agua de mezcla (kg/m3) para un asentamiento y un TMN,
-    interpolando linealmente entre tamices. Retorna None si está fuera de rango."""
+def get_water_content(slump_Cm, tmn_Mm, table):
+    """Mix water (kg/m3) for a slump and TMN, interpolating between sieves. None if out of range."""
 
-    # 1. Fila según el intervalo de asentamiento
-    row_mask = table["Asentamiento (cm)"].apply(lambda interval: slump_cm in interval)
+    # Row by slump interval
+    row_mask = table["Asentamiento (cm)"].apply(lambda interval: slump_Cm in interval)
     if not row_mask.any():
         return None
     row = table.loc[row_mask].iloc[0]
 
-    # 2. Solo los tamices que tienen valor (descarta los None)
+    # Keep only sieves with data (drop None)
     water_values = row[table.columns[1:]].astype(float).dropna()
     sieve_sizes = water_values.index.astype(float)
 
-    # 3. Si el TMN queda fuera del rango disponible, no se puede interpolar
-    if tmn_mm < sieve_sizes.min() or tmn_mm > sieve_sizes.max():
+    # TMN outside the available range cannot be interpolated
+    if tmn_Mm < sieve_sizes.min() or tmn_Mm > sieve_sizes.max():
         return None
 
-    # 4. Interpolación lineal (si el TMN coincide con un tamiz, da el valor exacto)
-    return float(np.interp(tmn_mm, sieve_sizes, water_values.values))
+    # Linear interpolation (exact value if TMN matches a sieve)
+    return float(np.interp(tmn_Mm, sieve_sizes, water_values.values))
 
 
-# Tabla para MOSTRAR (copia con encabezados de dos niveles)
-water_No_Air_Table_Display = water_No_Air_Table_Copy.copy()
-water_No_Air_Table_Display.columns = pd.MultiIndex.from_tuples(
-    [("Concreto sin aire", "Asentamiento (cm)")]
-    + [
-        ("Tamaño Máximo Nominal", f"{sieve} mm")
-        for sieve in water_No_Air_Table_Copy.columns[1:]
-    ]
-)
+def format_water_table(table, label):
+    """Copy of a water table with two-level headers for display."""
+    table_View = table.copy()
+    table_View.columns = pd.MultiIndex.from_tuples(
+        [(label, "Asentamiento (cm)")]
+        + [
+            ("Tamaño Máximo Nominal", f"{sieve} mm")
+            for sieve in table.columns[1:]
+        ]
+    )
+    return table_View
+
+
+# Table by air mode
+if concrete_Air_Mode == "Si":
+    water_Table_Selected = water_With_Air_Table_Copy
+    water_Table_View = format_water_table(water_With_Air_Table_Copy, "Concreto con aire")
+else:
+    water_Table_Selected = water_No_Air_Table_Copy
+    water_Table_View = format_water_table(water_No_Air_Table_Copy, "Concreto sin aire")
+
+st.subheader("Agua de mezcla (kg/m³) según asentamiento y TMN")
 
 st.dataframe(
-    water_No_Air_Table_Display,
-    use_container_width=True,
+    water_Table_View,
+    width="stretch",
     hide_index=True
 )
 
-# Agua calculada automáticamente con los datos seleccionados antes
-water_Interpolated = get_water_no_air(selected_Settlement, tmn_Selected)
+# Water from the previously selected settlement and TMN
+water_Interpolated = get_water_content(selected_Settlement, tmn_Selected, water_Table_Selected)
 
 water_Mode = st.radio(
     "Cantidad de agua de mezcla",
@@ -585,7 +692,7 @@ if water_Mode == "Automática (interpolada de la tabla)":
         st.write(f"Agua de mezcla: **{water_Content:.1f} kg/m³**")
 
 else:
-    # El valor inicial es el interpolado (si existe) para que puedas ajustarlo
+    # Default is the interpolated value (if any), adjustable
     water_Content = st.number_input(
         "Agua de mezcla (kg/m³)",
         min_value=0.0,
@@ -596,10 +703,9 @@ else:
 
 water_Content_Vol = water_Content / 1000
 
-# water_Content es la variable que usas en el resto de tus cálculos
+# ---------- RELACION AGUA CEMENTO - WATER/CEMENT RATIO ----------
 
-# -----------------RELACION AGUA CEMENTO-----------------
-st.header("Cálculo Relación Agua/Cemento a/c")
+st.header("Cálculo Relación Agua/Cemento (a/c)")
 
 concrete_Strength_Mode = st.radio(
     "Resistencia del concreto",
@@ -643,22 +749,21 @@ else:
     ]
     }
 
-def get_water_cement_ratio(strength, air_mode, table):
-    """Devuelve la relación a/c para una resistencia dada, interpolando
-    linealmente en la columna con aire o sin aire. Retorna None si está fuera de rango."""
+def get_water_cement_ratio(strength, air_Mode, table):
+    """a/c ratio for a strength, interpolating in the with/without air column. None if out of range."""
 
-    # 1. Columna según el tipo de concreto
-    column_Name = "Concreto con aire" if air_mode == "Si" else "Concreto sin aire"
+    # Column by concrete type
+    column_Name = "Concreto con aire" if air_Mode == "Si" else "Concreto sin aire"
 
     strength_Column = table.columns[0]
     strength_Values = table[strength_Column].astype(float).values
     ratio_Values = table[column_Name].astype(float).values
 
-    # 2. Fuera del rango de la tabla no se puede interpolar
+    # Outside the table range cannot be interpolated
     if strength < strength_Values.min() or strength > strength_Values.max():
         return None
 
-    # 3. Interpolación lineal (si coincide con un valor de la tabla, da el valor exacto)
+    # Linear interpolation (exact value if strength matches the table)
     return float(np.interp(strength, strength_Values, ratio_Values))
 
 
@@ -666,7 +771,7 @@ concrete_Strength_DataFrame = pd.DataFrame(concrete_Strength_Table)
 
 st.dataframe(
     concrete_Strength_DataFrame,
-    use_container_width=True,
+    width="stretch",
     hide_index=True
 )
 
@@ -683,9 +788,9 @@ else:
     air_Label = "con aire" if concrete_Air_Mode == "Si" else "sin aire"
     st.write(f"Relación a/c ({air_Label}): **{water_Cement_Ratio:.3f}**")
 
-# -----------------CONTENIDO DE CEMENTO-----------------
+# ---------- CONTENIDO DE CEMENTO - CEMENT CONTENT ----------
 
-st.header("Cálculo cantidad de cemento")
+st.header("Cálculo Cantidad de Cemento")
 
 cement_Density = st.number_input("Ingrese la densidad del concreto en kg/m3: ", min_value=0.0, step=100.0)
 
@@ -696,9 +801,9 @@ st.write(f"Con la cantidad de agua determinada: **{water_Content:.1f} kg/m3** y 
 
 st.write(f"El volumen de cemento es de: {cement_Vol:.4f} m3/m3 de concreto")
 
-# -----------------ESTIMAR CANTIDAD DE GRAVA-----------------
+# ---------- CANTIDAD DE GRAVA - GRAVEL CONTENT ----------
 
-st.header("Cálculo cantidad de grava")
+st.header("Cálculo Cantidad de Grava")
 
 mf_Table = {
     "Tamaño Maximo Nominal (mm)": [
@@ -760,29 +865,27 @@ st.subheader("Relación b/b0 para diferentes modulos de finura MF de la arena")
 
 st.table(mf_DataFrame)
 
-def get_coarse_aggregate_factor(tmn_mm, fineness_modulus, table=mf_DataFrame):
-    """Devuelve el valor de la tabla para un TMN y un módulo de finura,
-    interpolando linealmente en ambas direcciones (bilineal).
-    Retorna None si alguno de los dos está fuera del rango de la tabla."""
+def get_coarse_aggregate_factor(tmn_Mm, fineness_Modulus, table=mf_DataFrame):
+    """b/b0 for a TMN and fineness modulus (bilinear interpolation). None if out of range."""
 
     tmn_Column = table.columns[0]
     tmn_Values = table[tmn_Column].astype(float).values
     mf_Values = np.array(table.columns[1:], dtype=float)
 
-    # 1. Fuera de rango no se puede interpolar
-    if tmn_mm < tmn_Values.min() or tmn_mm > tmn_Values.max():
+    # Outside the table range cannot be interpolated
+    if tmn_Mm < tmn_Values.min() or tmn_Mm > tmn_Values.max():
         return None
-    if fineness_modulus < mf_Values.min() or fineness_modulus > mf_Values.max():
+    if fineness_Modulus < mf_Values.min() or fineness_Modulus > mf_Values.max():
         return None
 
-    # 2. Interpolar en TMN para cada columna de módulo de finura
+    # Interpolate on TMN for each fineness modulus column
     values_At_Tmn = [
-        np.interp(tmn_mm, tmn_Values, table[mf].astype(float).values)
+        np.interp(tmn_Mm, tmn_Values, table[mf].astype(float).values)
         for mf in table.columns[1:]
     ]
 
-    # 3. Interpolar en módulo de finura con los valores obtenidos
-    return float(np.interp(fineness_modulus, mf_Values, values_At_Tmn))
+    # Interpolate on fineness modulus
+    return float(np.interp(fineness_Modulus, mf_Values, values_At_Tmn))
 
 coarse_Factor = get_coarse_aggregate_factor(tmn_Selected, sand_Mf)
 
@@ -791,7 +894,7 @@ if coarse_Factor is None:
 else:
     st.write(f"Relación b/b0: **{coarse_Factor:.3f}**")
 
-b0_Value = gravel_MUC/gravel_dg
+b0_Value = gravel_Muc/gravel_Dg
 
 st.write(f"EL valor de b0 es igual al **MUC/dg**. Por lo tanto, el valor de b0 en este análisis es de: **{b0_Value:.4f}**")
 
@@ -799,289 +902,116 @@ b_Value = coarse_Factor*b0_Value
 
 st.write(f"Luego, el valor del volumen de agregado grueso por cada m3 de concreto se calcula de la siguiente manera: b = (b/b0)*b0. Por lo mismo, el valor de b es igual a: {b_Value:.4f} m3/m3")
 
-gravel_Weight = b_Value * gravel_dg
+gravel_Weight = b_Value * gravel_Dg
 
 st.write(f"Finalmente, el peso de agregado grueso por cada m3 de concreto se calcula de la siguiente manera: W = b*dg Por lo mismo, el valor del peso de agregado grueso es de: {gravel_Weight:.0f} kg/m3 de concreto")
 
-# -----------------ESTIMAR CANTIDAD DE ARENA-----------------
+# ---------- CANTIDAD DE ARENA - SAND CONTENT ----------
 
-st.header("Cálculo cantidad de agregado fino")
+st.header("Cálculo Cantidad de Agregado Fino")
 
 sand_Vol = 1 - (cement_Vol + water_Content_Vol + b_Value + air_Percentage_Vol)
 
 st.write(f"La cantidad de agregado fino se define hallando la diferencia entre 1 m3 y la sumatoria de todos los demás volumenes hallados durante el diseño. Luego, el **volumen de agregado fino es de {sand_Vol:.4f} m3/m3 de concreto**")
 
-sand_Weight = sand_Vol * sand_df
+sand_Weight = sand_Vol * sand_Df
 
 st.write(f"El peso del agregado fino es de {sand_Weight:.0f} kg/m3 de concreto")
 
-# -----------------AJUSTAR CANTIDAD DE AGUA POR HUMEDAD-----------------
+# ---------- CORRECCION POR HUMEDAD - MOISTURE ADJUSTMENT ----------
 
-def calcular_humedad(mh, m):
-    """Humedad del agregado en tanto por uno."""
-    if m <= 0:
-        raise ValueError("El peso seco debe ser mayor que cero.")
-    return (mh - m) / m
+st.header("Corrección por Humedad y Dosificación Final")
 
-
-def calcular_absorcion(msss, m):
-    """Absorción del agregado en tanto por uno."""
-    if m <= 0:
-        raise ValueError("El peso seco debe ser mayor que cero.")
-    return (msss - m) / m
+def calculate_moisture(wet_Weight, dry_Weight):
+    """Moisture content (fraction of dry weight)."""
+    return (wet_Weight - dry_Weight) / dry_Weight
 
 
-def calcular_agua_exceso_defecto(m, h, abs_val):
-    """
-    Corrección de agua respecto al estado SSS.
-    Resultado positivo: agregar agua.
-    Resultado negativo: restar agua.
-    """
-    return m * (abs_val - h)
+def calculate_absorption(sss_Weight, dry_Weight):
+    """Absorption (fraction of dry weight)."""
+    return (sss_Weight - dry_Weight) / dry_Weight
 
 
-def calcular_peso_humedo(m, h):
-    """Convierte peso seco a peso húmedo."""
-    return m * (1 + h)
+def calculate_water_excess_deficit(weight, moisture, absorption):
+    """Water correction vs SSS: positive = add water, negative = remove water."""
+    return weight * (absorption - moisture)
 
 
-# ==========================================
-# CORRECCIÓN POR HUMEDAD
-# ==========================================
-
-# Humedad y absorción del agregado grueso
-gravel_H = calcular_humedad(
-    gravel_Wet_Weight,
-    gravel_Dry_Weight
-) if gravel_Dry_Weight > 0 else None
-
-gravel_Abs = calcular_absorcion(
-    gravel_Sss_Weight,
-    gravel_Dry_Weight
-) if gravel_Dry_Weight > 0 else None
+def calculate_wet_weight(weight, moisture):
+    """Dry weight to wet weight."""
+    return weight * (1 + moisture)
 
 
-# Humedad y absorción del agregado fino
-sand_H = calcular_humedad(
-    sand_Wet_Weight,
-    sand_Dry_Weight
-) if sand_Dry_Weight > 0 else None
+# Base: 1 m3 of concrete
+if gravel_Dry_Weight <= 0 or sand_Dry_Weight <= 0:
+    st.error("Ingresa pesos secos mayores que cero para ambos agregados y verifica los pesos húmedos y SSS.")
 
-sand_Abs = calcular_absorcion(
-    sand_Sss_Weight,
-    sand_Dry_Weight
-) if sand_Dry_Weight > 0 else None
+elif gravel_Weight < 0 or sand_Weight < 0 or water_Content < 0:
+    st.error("Las cantidades de diseño no pueden ser negativas.")
 
+else:
+    if (
+        gravel_Wet_Weight < gravel_Dry_Weight
+        or sand_Wet_Weight < sand_Dry_Weight
+        or gravel_Sss_Weight < gravel_Dry_Weight
+        or sand_Sss_Weight < sand_Dry_Weight
+    ):
+        st.warning("Hay pesos húmedos o SSS menores que el peso seco. Revisa los datos de laboratorio.")
 
-# ==========================================
-# APLICAR CORRECCIÓN A LA MEZCLA
-# ==========================================
+    # Moisture and absorption (fractions)
+    gravel_H = calculate_moisture(gravel_Wet_Weight, gravel_Dry_Weight)
+    gravel_Abs = calculate_absorption(gravel_Sss_Weight, gravel_Dry_Weight)
+    sand_H = calculate_moisture(sand_Wet_Weight, sand_Dry_Weight)
+    sand_Abs = calculate_absorption(sand_Sss_Weight, sand_Dry_Weight)
 
-if (
-    gravel_H is not None
-    and gravel_Abs is not None
-    and sand_H is not None
-    and sand_Abs is not None
-):
+    # Wet weights to batch
+    gravel_Wet_Weight_Mix = calculate_wet_weight(gravel_Weight, gravel_H)
+    sand_Wet_Weight_Mix = calculate_wet_weight(sand_Weight, sand_H)
 
-    # Pesos húmedos que se deben dosificar
-    gravel_Wet_Weight_Mix = calcular_peso_humedo(
-        gravel_Weight, gravel_H
-    )
+    # Water correction: positive = add, negative = remove
+    gravel_Water_Correction = calculate_water_excess_deficit(gravel_Weight, gravel_H, gravel_Abs)
+    sand_Water_Correction = calculate_water_excess_deficit(sand_Weight, sand_H, sand_Abs)
+    total_Water_Correction = gravel_Water_Correction + sand_Water_Correction
 
-    sand_Wet_Weight_Mix = calcular_peso_humedo(
-        sand_Weight, sand_H
-    )
-
-    # Corrección de agua para cada agregado
-    gravel_Water_Correction = calcular_agua_exceso_defecto(
-        gravel_Weight, gravel_H, gravel_Abs
-    )
-
-    sand_Water_Correction = calcular_agua_exceso_defecto(
-        sand_Weight, sand_H, sand_Abs
-    )
-
-    # Corrección total de agua
-    total_Water_Correction = (
-        gravel_Water_Correction + sand_Water_Correction
-    )
-
-    # Agua final que se debe agregar a la mezcladora
+    # Water to add in the mixer
     corrected_Water = water_Content + total_Water_Correction
 
-
-    # ==========================================
-    # MOSTRAR RESULTADOS EN STREAMLIT
-    # ==========================================
+    # ---------- CORRECCION POR AGREGADO - CORRECTION PER AGGREGATE ----------
 
     st.subheader("Corrección por humedad de los agregados")
 
     col1, col2 = st.columns(2)
 
     with col1:
-        st.markdown("**Agregado grueso**")
+        st.markdown("#### Agregado grueso")
         st.write(f"Humedad: {gravel_H * 100:.2f} %")
         st.write(f"Absorción: {gravel_Abs * 100:.2f} %")
-        st.write(
-            f"Peso húmedo de diseño: "
-            f"{gravel_Wet_Weight_Mix:.2f} kg/m³"
-        )
-        st.write(
-            f"Corrección de agua: "
-            f"{gravel_Water_Correction:+.2f} kg/m³"
-        )
+        st.write(f"Peso húmedo de diseño: {gravel_Wet_Weight_Mix:.2f} kg/m³")
+        st.write(f"Corrección de agua: {gravel_Water_Correction:+.2f} kg/m³")
 
     with col2:
-        st.markdown("**Agregado fino**")
+        st.markdown("#### Agregado fino")
         st.write(f"Humedad: {sand_H * 100:.2f} %")
         st.write(f"Absorción: {sand_Abs * 100:.2f} %")
-        st.write(
-            f"Peso húmedo de diseño: "
-            f"{sand_Wet_Weight_Mix:.2f} kg/m³"
-        )
-        st.write(
-            f"Corrección de agua: "
-            f"{sand_Water_Correction:+.2f} kg/m³"
-        )
+        st.write(f"Peso húmedo de diseño: {sand_Wet_Weight_Mix:.2f} kg/m³")
+        st.write(f"Corrección de agua: {sand_Water_Correction:+.2f} kg/m³")
 
     st.divider()
 
-    st.metric(
-        "Corrección total de agua",
-        f"{total_Water_Correction:+.2f} kg/m³"
-    )
-
-    st.metric(
-        "Agua corregida para la mezcla",
-        f"{corrected_Water:.2f} kg/m³"
-    )
-
-else:
-    st.warning(
-        "Ingresa pesos secos mayores que cero para ambos agregados "
-        "y verifica los pesos húmedos y SSS."
-    )
-
-
-# ==========================================
-# CORRECCIÓN POR HUMEDAD Y DOSIFICACIÓN FINAL
-# Base: 1 m³ de concreto
-# ==========================================
-
-# Validar pesos de los ensayos
-if gravel_Dry_Weight <= 0 or sand_Dry_Weight <= 0:
-    st.error("Los pesos secos de laboratorio deben ser mayores que cero.")
-
-elif gravel_Weight < 0 or sand_Weight < 0 or water_Content < 0:
-    st.error("Las cantidades de diseño no pueden ser negativas.")
-
-else:
-    # --------------------------------------
-    # 1. Humedad y absorción (tanto por uno)
-    # --------------------------------------
-
-    gravel_H = calcular_humedad(
-        gravel_Wet_Weight,
-        gravel_Dry_Weight
-    )
-
-    gravel_Abs = calcular_absorcion(
-        gravel_Sss_Weight,
-        gravel_Dry_Weight
-    )
-
-    sand_H = calcular_humedad(
-        sand_Wet_Weight,
-        sand_Dry_Weight
-    )
-
-    sand_Abs = calcular_absorcion(
-        sand_Sss_Weight,
-        sand_Dry_Weight
-    )
-
-    # --------------------------------------
-    # 2. Pesos húmedos finales de agregados
-    # --------------------------------------
-
-    gravel_Wet_Weight_Mix = calcular_peso_humedo(
-        gravel_Weight, gravel_H
-    )
-
-    sand_Wet_Weight_Mix = calcular_peso_humedo(
-        sand_Weight, sand_H
-    )
-
-    # --------------------------------------
-    # 3. Corrección de agua
-    # Positivo = agregar agua
-    # Negativo = restar agua
-    # --------------------------------------
-
-    gravel_Water_Correction = calcular_agua_exceso_defecto(
-        gravel_Weight, gravel_H, gravel_Abs
-    )
-
-    sand_Water_Correction = calcular_agua_exceso_defecto(
-        sand_Weight, sand_H, sand_Abs
-    )
-
-    total_Water_Correction = (
-        gravel_Water_Correction + sand_Water_Correction
-    )
-
-    corrected_Water = water_Content + total_Water_Correction
+    st.metric("Corrección total de agua", f"{total_Water_Correction:+.2f} kg/m³")
 
     if corrected_Water < 0:
-        st.error(
-            "El agua corregida es negativa. Revisa los datos de "
-            "diseño, humedad y absorción."
-        )
+        st.error("El agua corregida es negativa. Revisa los datos de diseño, humedad y absorción.")
     else:
-        # ----------------------------------
-        # 4. Volúmenes finales
-        # ----------------------------------
-        # Las densidades están en kg/m³.
-        # Los pesos están expresados en kg/m³ de concreto.
-        # El resultado corresponde a m³ de material por m³ de concreto.
-
-        gravel_Wet_Volume_Mix = (
-            gravel_Wet_Weight_Mix / gravel_dg
-            if gravel_dg > 0 else None
-        )
-
-        sand_Wet_Volume_Mix = (
-            sand_Wet_Weight_Mix / sand_df
-            if sand_df > 0 else None
-        )
-
-        # Para cemento, conservar cement_Vol si ya está calculado.
-        # Para agua, 1 kg ≈ 1 L.
-        corrected_Water_Vol = corrected_Water / 1000
-
-        # ----------------------------------
-        # 5. Mostrar resultados finales
-        # ----------------------------------
+        # ---------- DOSIFICACION FINAL - FINAL BATCHING ----------
 
         st.subheader("Dosificación final corregida")
 
         col1, col2, col3 = st.columns(3)
 
-        col1.metric(
-            "Grava húmeda",
-            f"{gravel_Wet_Weight_Mix:.2f} kg/m³"
-        )
-
-        col2.metric(
-            "Arena húmeda",
-            f"{sand_Wet_Weight_Mix:.2f} kg/m³"
-        )
-
-        col3.metric(
-            "Agua corregida",
-            f"{corrected_Water:.2f} kg/m³"
-        )
+        col1.metric("Grava húmeda", f"{gravel_Wet_Weight_Mix:.2f} kg/m³")
+        col2.metric("Arena húmeda", f"{sand_Wet_Weight_Mix:.2f} kg/m³")
+        col3.metric("Agua corregida", f"{corrected_Water:.2f} kg/m³")
 
         st.caption(
             "Las masas húmedas son las cantidades de agregado que "
@@ -1090,14 +1020,9 @@ else:
             "por los agregados."
         )
 
-        # ----------------------------------
-        # 6. Tabla resumen de materiales
-        # ----------------------------------
+        # ---------- TABLA RESUMEN - SUMMARY TABLE ----------
 
-        # Volúmenes originales ya calculados por tu programa.
-        # air_Percentage_Vol está expresado como decimal.
-        # Se interpreta como fracción de 1 m³ de concreto.
-
+        # Volumes are design volumes (unchanged by moisture), they add up to 1 m3/m3
         materials = [
             {
                 "Material": "Cemento",
@@ -1109,27 +1034,23 @@ else:
             {
                 "Material": "Agregado grueso",
                 "Peso de diseño (kg/m³)": gravel_Weight,
-                "Corrección de peso (kg/m³)": (
-                    gravel_Wet_Weight_Mix - gravel_Weight
-                ),
+                "Corrección de peso (kg/m³)": gravel_Wet_Weight_Mix - gravel_Weight,
                 "Peso final (kg/m³)": gravel_Wet_Weight_Mix,
-                "Volumen (m³/m³)": gravel_Wet_Volume_Mix,
+                "Volumen (m³/m³)": b_Value,
             },
             {
                 "Material": "Agregado fino",
                 "Peso de diseño (kg/m³)": sand_Weight,
-                "Corrección de peso (kg/m³)": (
-                    sand_Wet_Weight_Mix - sand_Weight
-                ),
+                "Corrección de peso (kg/m³)": sand_Wet_Weight_Mix - sand_Weight,
                 "Peso final (kg/m³)": sand_Wet_Weight_Mix,
-                "Volumen (m³/m³)": sand_Wet_Volume_Mix,
+                "Volumen (m³/m³)": sand_Vol,
             },
             {
                 "Material": "Agua",
                 "Peso de diseño (kg/m³)": water_Content,
                 "Corrección de peso (kg/m³)": total_Water_Correction,
                 "Peso final (kg/m³)": corrected_Water,
-                "Volumen (m³/m³)": corrected_Water_Vol,
+                "Volumen (m³/m³)": water_Content_Vol,
             },
             {
                 "Material": "Aire",
@@ -1140,17 +1061,17 @@ else:
             },
         ]
 
-        df_mix = pd.DataFrame(materials)
+        mix_Table = pd.DataFrame(materials)
 
         st.subheader("Tabla resumen de dosificación por 1 m³")
 
         st.dataframe(
-            df_mix,
-            use_container_width=True,
+            mix_Table,
+            width="stretch",
             hide_index=True
         )
 
-        csv = df_mix.to_csv(index=False).encode("utf-8-sig")
+        csv = mix_Table.to_csv(index=False).encode("utf-8-sig")
 
         st.download_button(
             label="Descargar tabla de dosificación (CSV)",
@@ -1159,6 +1080,4 @@ else:
             mime="text/csv"
         )
 
-# -----------------AJUSTAR MEZCLAS DE PRUEBA-----------------
-
-
+# ---------- AJUSTE DE MEZCLAS DE PRUEBA - TRIAL BATCH ADJUSTMENT ----------
