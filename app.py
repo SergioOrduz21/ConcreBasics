@@ -8,6 +8,18 @@ st.title("Diseño de Mezclas de Concreto de Peso Normal")
 
 st.write("Datos iniciales para el cálculo de la mezcla de concreto según el Método ACI")
 
+gravel_Dry_Weight = st.number_input("Peso seco del agregado grueso (Ensayo INV-E-223) en g.", min_value=0.0, step=1.0)
+
+sand_Dry_Weight = st.number_input("Peso seco del agregado fino (Ensayo INV-E-222) en g.", min_value=0.0, step=1.0)
+
+gravel_Wet_Weight = st.number_input("Peso húmedo del agregado grueso (Ensayo INV-E-223) en g.", min_value=0.0, step=1.0)
+
+sand_Wet_Weight = st.number_input("Peso húmedo del agregado fino (Ensayo INV-E-222) en g.", min_value=0.0, step=1.0)
+
+gravel_Sss_Weight = st.number_input("Peso Saturado y Superficialmente Seco SSS del agregado grueso (Ensayo INV-E-223) en g.", min_value=0.0, step=1.0)
+
+sand_Sss_Weight = st.number_input("Peso Saturado y Superficialmente Seco del agregado fino (Ensayo INV-E-222) en g.", min_value=0.0, step=1.0)
+
 sand_Mf = st.number_input("MF (Modulo de Finura de la arena)", min_value=0.0, step=1.0)
 
 gravel_MUC = st.number_input("MUC (Masa Unitaria Compacta) de la grava", min_value=0.0, step=1.0)
@@ -558,6 +570,8 @@ water_Mode = st.radio(
     horizontal=True
 )
 
+water_Content = 0
+
 if water_Mode == "Automática (interpolada de la tabla)":
     water_Content = water_Interpolated
 
@@ -800,9 +814,350 @@ st.write(f"La cantidad de agregado fino se define hallando la diferencia entre 1
 sand_Weight = sand_Vol * sand_df
 
 st.write(f"El peso del agregado fino es de {sand_Weight:.0f} kg/m3 de concreto")
+
 # -----------------AJUSTAR CANTIDAD DE AGUA POR HUMEDAD-----------------
 
+def calcular_humedad(mh, m):
+    """Humedad del agregado en tanto por uno."""
+    if m <= 0:
+        raise ValueError("El peso seco debe ser mayor que cero.")
+    return (mh - m) / m
 
+
+def calcular_absorcion(msss, m):
+    """Absorción del agregado en tanto por uno."""
+    if m <= 0:
+        raise ValueError("El peso seco debe ser mayor que cero.")
+    return (msss - m) / m
+
+
+def calcular_agua_exceso_defecto(m, h, abs_val):
+    """
+    Corrección de agua respecto al estado SSS.
+    Resultado positivo: agregar agua.
+    Resultado negativo: restar agua.
+    """
+    return m * (abs_val - h)
+
+
+def calcular_peso_humedo(m, h):
+    """Convierte peso seco a peso húmedo."""
+    return m * (1 + h)
+
+
+# ==========================================
+# CORRECCIÓN POR HUMEDAD
+# ==========================================
+
+# Humedad y absorción del agregado grueso
+gravel_H = calcular_humedad(
+    gravel_Wet_Weight,
+    gravel_Dry_Weight
+) if gravel_Dry_Weight > 0 else None
+
+gravel_Abs = calcular_absorcion(
+    gravel_Sss_Weight,
+    gravel_Dry_Weight
+) if gravel_Dry_Weight > 0 else None
+
+
+# Humedad y absorción del agregado fino
+sand_H = calcular_humedad(
+    sand_Wet_Weight,
+    sand_Dry_Weight
+) if sand_Dry_Weight > 0 else None
+
+sand_Abs = calcular_absorcion(
+    sand_Sss_Weight,
+    sand_Dry_Weight
+) if sand_Dry_Weight > 0 else None
+
+
+# ==========================================
+# APLICAR CORRECCIÓN A LA MEZCLA
+# ==========================================
+
+if (
+    gravel_H is not None
+    and gravel_Abs is not None
+    and sand_H is not None
+    and sand_Abs is not None
+):
+
+    # Pesos húmedos que se deben dosificar
+    gravel_Wet_Weight_Mix = calcular_peso_humedo(
+        gravel_Weight, gravel_H
+    )
+
+    sand_Wet_Weight_Mix = calcular_peso_humedo(
+        sand_Weight, sand_H
+    )
+
+    # Corrección de agua para cada agregado
+    gravel_Water_Correction = calcular_agua_exceso_defecto(
+        gravel_Weight, gravel_H, gravel_Abs
+    )
+
+    sand_Water_Correction = calcular_agua_exceso_defecto(
+        sand_Weight, sand_H, sand_Abs
+    )
+
+    # Corrección total de agua
+    total_Water_Correction = (
+        gravel_Water_Correction + sand_Water_Correction
+    )
+
+    # Agua final que se debe agregar a la mezcladora
+    corrected_Water = water_Content + total_Water_Correction
+
+
+    # ==========================================
+    # MOSTRAR RESULTADOS EN STREAMLIT
+    # ==========================================
+
+    st.subheader("Corrección por humedad de los agregados")
+
+    col1, col2 = st.columns(2)
+
+    with col1:
+        st.markdown("**Agregado grueso**")
+        st.write(f"Humedad: {gravel_H * 100:.2f} %")
+        st.write(f"Absorción: {gravel_Abs * 100:.2f} %")
+        st.write(
+            f"Peso húmedo de diseño: "
+            f"{gravel_Wet_Weight_Mix:.2f} kg/m³"
+        )
+        st.write(
+            f"Corrección de agua: "
+            f"{gravel_Water_Correction:+.2f} kg/m³"
+        )
+
+    with col2:
+        st.markdown("**Agregado fino**")
+        st.write(f"Humedad: {sand_H * 100:.2f} %")
+        st.write(f"Absorción: {sand_Abs * 100:.2f} %")
+        st.write(
+            f"Peso húmedo de diseño: "
+            f"{sand_Wet_Weight_Mix:.2f} kg/m³"
+        )
+        st.write(
+            f"Corrección de agua: "
+            f"{sand_Water_Correction:+.2f} kg/m³"
+        )
+
+    st.divider()
+
+    st.metric(
+        "Corrección total de agua",
+        f"{total_Water_Correction:+.2f} kg/m³"
+    )
+
+    st.metric(
+        "Agua corregida para la mezcla",
+        f"{corrected_Water:.2f} kg/m³"
+    )
+
+else:
+    st.warning(
+        "Ingresa pesos secos mayores que cero para ambos agregados "
+        "y verifica los pesos húmedos y SSS."
+    )
+
+
+# ==========================================
+# CORRECCIÓN POR HUMEDAD Y DOSIFICACIÓN FINAL
+# Base: 1 m³ de concreto
+# ==========================================
+
+# Validar pesos de los ensayos
+if gravel_Dry_Weight <= 0 or sand_Dry_Weight <= 0:
+    st.error("Los pesos secos de laboratorio deben ser mayores que cero.")
+
+elif gravel_Weight < 0 or sand_Weight < 0 or water_Content < 0:
+    st.error("Las cantidades de diseño no pueden ser negativas.")
+
+else:
+    # --------------------------------------
+    # 1. Humedad y absorción (tanto por uno)
+    # --------------------------------------
+
+    gravel_H = calcular_humedad(
+        gravel_Wet_Weight,
+        gravel_Dry_Weight
+    )
+
+    gravel_Abs = calcular_absorcion(
+        gravel_Sss_Weight,
+        gravel_Dry_Weight
+    )
+
+    sand_H = calcular_humedad(
+        sand_Wet_Weight,
+        sand_Dry_Weight
+    )
+
+    sand_Abs = calcular_absorcion(
+        sand_Sss_Weight,
+        sand_Dry_Weight
+    )
+
+    # --------------------------------------
+    # 2. Pesos húmedos finales de agregados
+    # --------------------------------------
+
+    gravel_Wet_Weight_Mix = calcular_peso_humedo(
+        gravel_Weight, gravel_H
+    )
+
+    sand_Wet_Weight_Mix = calcular_peso_humedo(
+        sand_Weight, sand_H
+    )
+
+    # --------------------------------------
+    # 3. Corrección de agua
+    # Positivo = agregar agua
+    # Negativo = restar agua
+    # --------------------------------------
+
+    gravel_Water_Correction = calcular_agua_exceso_defecto(
+        gravel_Weight, gravel_H, gravel_Abs
+    )
+
+    sand_Water_Correction = calcular_agua_exceso_defecto(
+        sand_Weight, sand_H, sand_Abs
+    )
+
+    total_Water_Correction = (
+        gravel_Water_Correction + sand_Water_Correction
+    )
+
+    corrected_Water = water_Content + total_Water_Correction
+
+    if corrected_Water < 0:
+        st.error(
+            "El agua corregida es negativa. Revisa los datos de "
+            "diseño, humedad y absorción."
+        )
+    else:
+        # ----------------------------------
+        # 4. Volúmenes finales
+        # ----------------------------------
+        # Las densidades están en kg/m³.
+        # Los pesos están expresados en kg/m³ de concreto.
+        # El resultado corresponde a m³ de material por m³ de concreto.
+
+        gravel_Wet_Volume_Mix = (
+            gravel_Wet_Weight_Mix / gravel_dg
+            if gravel_dg > 0 else None
+        )
+
+        sand_Wet_Volume_Mix = (
+            sand_Wet_Weight_Mix / sand_df
+            if sand_df > 0 else None
+        )
+
+        # Para cemento, conservar cement_Vol si ya está calculado.
+        # Para agua, 1 kg ≈ 1 L.
+        corrected_Water_Vol = corrected_Water / 1000
+
+        # ----------------------------------
+        # 5. Mostrar resultados finales
+        # ----------------------------------
+
+        st.subheader("Dosificación final corregida")
+
+        col1, col2, col3 = st.columns(3)
+
+        col1.metric(
+            "Grava húmeda",
+            f"{gravel_Wet_Weight_Mix:.2f} kg/m³"
+        )
+
+        col2.metric(
+            "Arena húmeda",
+            f"{sand_Wet_Weight_Mix:.2f} kg/m³"
+        )
+
+        col3.metric(
+            "Agua corregida",
+            f"{corrected_Water:.2f} kg/m³"
+        )
+
+        st.caption(
+            "Las masas húmedas son las cantidades de agregado que "
+            "se deben dosificar. El agua corregida es la cantidad "
+            "que se añade, considerando el agua aportada o absorbida "
+            "por los agregados."
+        )
+
+        # ----------------------------------
+        # 6. Tabla resumen de materiales
+        # ----------------------------------
+
+        # Volúmenes originales ya calculados por tu programa.
+        # air_Percentage_Vol está expresado como decimal.
+        # Se interpreta como fracción de 1 m³ de concreto.
+
+        materials = [
+            {
+                "Material": "Cemento",
+                "Peso de diseño (kg/m³)": cement_Weight,
+                "Corrección de peso (kg/m³)": 0.0,
+                "Peso final (kg/m³)": cement_Weight,
+                "Volumen (m³/m³)": cement_Vol,
+            },
+            {
+                "Material": "Agregado grueso",
+                "Peso de diseño (kg/m³)": gravel_Weight,
+                "Corrección de peso (kg/m³)": (
+                    gravel_Wet_Weight_Mix - gravel_Weight
+                ),
+                "Peso final (kg/m³)": gravel_Wet_Weight_Mix,
+                "Volumen (m³/m³)": gravel_Wet_Volume_Mix,
+            },
+            {
+                "Material": "Agregado fino",
+                "Peso de diseño (kg/m³)": sand_Weight,
+                "Corrección de peso (kg/m³)": (
+                    sand_Wet_Weight_Mix - sand_Weight
+                ),
+                "Peso final (kg/m³)": sand_Wet_Weight_Mix,
+                "Volumen (m³/m³)": sand_Wet_Volume_Mix,
+            },
+            {
+                "Material": "Agua",
+                "Peso de diseño (kg/m³)": water_Content,
+                "Corrección de peso (kg/m³)": total_Water_Correction,
+                "Peso final (kg/m³)": corrected_Water,
+                "Volumen (m³/m³)": corrected_Water_Vol,
+            },
+            {
+                "Material": "Aire",
+                "Peso de diseño (kg/m³)": 0.0,
+                "Corrección de peso (kg/m³)": 0.0,
+                "Peso final (kg/m³)": 0.0,
+                "Volumen (m³/m³)": air_Percentage_Vol,
+            },
+        ]
+
+        df_mix = pd.DataFrame(materials)
+
+        st.subheader("Tabla resumen de dosificación por 1 m³")
+
+        st.dataframe(
+            df_mix,
+            use_container_width=True,
+            hide_index=True
+        )
+
+        csv = df_mix.to_csv(index=False).encode("utf-8-sig")
+
+        st.download_button(
+            label="Descargar tabla de dosificación (CSV)",
+            data=csv,
+            file_name="dosificacion_concreto_corregida.csv",
+            mime="text/csv"
+        )
 
 # -----------------AJUSTAR MEZCLAS DE PRUEBA-----------------
 
